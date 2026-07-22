@@ -70,6 +70,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </label>
   <input type="number" id="strokeWidth" value="0.5" min="0.1" max="5" step="0.1" disabled>
 
+  <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+    <input type="checkbox" id="flattenGradients">
+    🎯 Gradient → Düz Renk
+  </label>
+
   <div class="bottom-note">
     Dual Engine: K-Means + VTracer
   </div>
@@ -156,6 +161,7 @@ async function vectorize() {
   formData.append('strokeWidth', document.getElementById('strokeWidth').value);
   formData.append('engine', document.getElementById('engine').value);
   formData.append('layered', document.getElementById('layered').checked);
+  formData.append('flattenGradients', document.getElementById('flattenGradients').checked);
   
   try {
     const res = await fetch('/api/vectorize', { method: 'POST', body: formData });

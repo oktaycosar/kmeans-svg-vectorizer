@@ -22,6 +22,7 @@ async def vectorize(
     strokeWidth: float = Form(0.5),
     engine: str = Form("kmeans"),
     layered: bool = Form(False),
+    flattenGradients: bool = Form(False),
 ):
     """Vectorize: K-Means (default) or VTracer (spline curves)"""
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
@@ -29,6 +30,9 @@ async def vectorize(
         tmp_path = tmp.name
 
     try:
+        if flattenGradients:
+            tmp_path = _flatten_gradients(tmp_path)
+
         if engine == "vtracer":
             result = _vectorize_vtracer(tmp_path, maxColors, detail)
         else:
@@ -41,6 +45,33 @@ async def vectorize(
         return result
     finally:
         os.unlink(tmp_path)
+
+
+# ── Gradient Flatten ────────────────────────────────────────────
+
+def _flatten_gradients(tmp_path):
+    """Gradient bölgeleri düz renge çevir, kenarları koru.
+    Mean-shift + bilateral filter ile gradient'leri yok eder."""
+    img = cv2.imread(tmp_path)
+    if img is None:
+        return tmp_path
+    
+    h, w = img.shape[:2]
+    # Büyük resimleri küçült (hız için)
+    if max(h, w) > 1024:
+        scale = 1024 / max(h, w)
+        img = cv2.resize(img, (int(w * scale), int(h * scale)))
+    
+    # Mean-shift: benzer renkli pikselleri birleştir, gradient'leri düzleştir
+    # sp=8 (küçük) → yuvarlak kenarları daha iyi korur
+    flat = cv2.pyrMeanShiftFiltering(img, sp=8, sr=25, maxLevel=2)
+    
+    # Edge-aware filter: yuvarlak hatları mean-shift'ten daha iyi korur
+    flat = cv2.edgePreservingFilter(flat, flags=1, sigma_s=40, sigma_r=0.15)
+    
+    out_path = tmp_path + "_flat.png"
+    cv2.imwrite(out_path, flat)
+    return out_path
 
 
 # ── VTracer Engine ──────────────────────────────────────────────

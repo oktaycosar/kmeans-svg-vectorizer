@@ -1,0 +1,18 @@
+# ImageVectorizer — Production-quality image vectorization
+# Requirements for Python 3.12+
+
+# Core image processing
+opencv-python>=4.10.0
+numpy>=1.26.0
+Pillow>=10.0.0
+
+# Geometric operations
+shapely>=2.0.0
+scikit-image>=0.22.0
+
+# Future: PPTX/SVG/DXF export (uncomment when needed)
+# python-pptx>=0.6.21
+# svgwrite>=1.4.3
+
+# Testing
+pytest>=8.0.0

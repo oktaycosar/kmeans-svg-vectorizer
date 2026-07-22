@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+
+# Virtual env
+.venv/
+
+# IDE
+.vscode/
+
+# Reference (TypeScript, not part of our pipeline)
+reference_project/
+
+# Output/test folders
+*_output/
+*_output_*/
+output/
+vector_ready/
+
+# OS
+Thumbs.db
+Desktop.ini

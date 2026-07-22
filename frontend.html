@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vectorizer — K-Means + SVG</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f0f23;color:#e0e0e0;min-height:100vh;display:flex}
+/* Sidebar */
+.sidebar{width:280px;background:#1a1a2e;padding:24px 20px;display:flex;flex-direction:column;gap:18px;border-right:1px solid #2a2a4a;flex-shrink:0}
+.sidebar h2{font-size:1.3em;color:#7c8aff;margin-bottom:4px}
+.sidebar label{font-size:0.82em;color:#999;text-transform:uppercase;letter-spacing:0.5px}
+.sidebar input[type=range]{width:100%;accent-color:#7c8aff}
+.sidebar input[type=number]{width:100%;background:#0f0f23;border:1px solid #2a2a4a;color:#e0e0e0;padding:6px 10px;border-radius:6px}
+.sidebar .range-val{font-size:0.85em;color:#7c8aff;text-align:right}
+.row{display:flex;justify-content:space-between;align-items:center}
+/* Main */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.toolbar{display:flex;gap:12px;padding:16px 24px;background:#1a1a2e;border-bottom:1px solid #2a2a4a;align-items:center}
+.toolbar button,.toolbar .upload-btn{padding:10px 20px;border-radius:8px;border:none;cursor:pointer;font-size:0.9em;font-weight:600;transition:all 0.2s}
+.btn-primary{background:#7c8aff;color:#fff}
+.btn-primary:hover{background:#5e6de0}
+.btn-secondary{background:#2a2a4a;color:#ccc}
+.btn-secondary:hover{background:#3a3a5a}
+.upload-btn{background:#0f0f23;color:#7c8aff;border:1px dashed #7c8aff!important;display:inline-flex;align-items:center;gap:6px}
+.upload-btn input[type=file]{display:none}
+.split{display:flex;flex:1;overflow:hidden}
+.panel{flex:1;display:flex;align-items:center;justify-content:center;position:relative;min-height:300px}
+.panel img,.panel svg{max-width:95%;max-height:95%;object-fit:contain}
+.panel svg{background:#fff;border-radius:4px}
+.panel-label{position:absolute;top:12px;left:12px;background:rgba(0,0,0,0.7);padding:4px 12px;border-radius:4px;font-size:0.78em;color:#aaa;letter-spacing:0.5px}
+#svg-panel{background:#e8e8e8;background-image:linear-gradient(45deg,#d0d0d0 25%,transparent 25%),linear-gradient(-45deg,#d0d0d0 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#d0d0d0 75%),linear-gradient(-45deg,transparent 75%,#d0d0d0 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0}
+.stats{padding:10px 24px;background:#1a1a2e;border-top:1px solid #2a2a4a;font-size:0.82em;color:#888;display:flex;gap:24px}
+.stats span{color:#7c8aff;font-weight:600}
+#svg-panel.dark{background-image:linear-gradient(45deg,#333 25%,transparent 25%),linear-gradient(-45deg,#333 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#333 75%),linear-gradient(-45deg,transparent 75%,#333 75%)}
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <h2>⚙️ Vectorizer</h2>
+  <p style="font-size:0.78em;color:#666;margin-top:-12px">K-Means + contours + SVG</p>
+
+  <label>🎨 Max Colors</label>
+  <div class="row"><input type="range" id="colors" min="2" max="32" value="12" oninput="document.getElementById('colorsVal').textContent=this.value"><span class="range-val" id="colorsVal">12</span></div>
+
+  <label>🔍 Detail Level</label>
+  <div class="row"><input type="range" id="detail" min="1" max="10" value="5" oninput="document.getElementById('detailVal').textContent=this.value"><span class="range-val" id="detailVal">5</span></div>
+
+  <label>📐 Max Image Size (px)</label>
+  <input type="number" id="maxSize" value="1024" min="256" max="4096" step="128">
+
+  <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+    <input type="checkbox" id="strokeEnabled" onchange="document.getElementById('strokeWidth').disabled=!this.checked">
+    ✏️ Stroke
+  </label>
+  <input type="number" id="strokeWidth" value="0.5" min="0.1" max="5" step="0.1" disabled>
+
+  <div style="margin-top:auto;font-size:0.72em;color:#555;text-align:center;padding-top:12px;border-top:1px solid #1f1f3a">
+    Stable v1 · No Bezier<br>K-Means → findContours → SVG
+  </div>
+</div>
+
+<div class="main">
+  <div class="toolbar">
+    <label class="upload-btn">📁 Upload Image<input type="file" id="fileInput" accept="image/png,image/jpeg,image/jpg,image/webp,image/bmp" onchange="handleFile(this)"></label>
+    <button class="btn-primary" id="vectorizeBtn" onclick="vectorize()" disabled>⚡ Vectorize</button>
+    <button class="btn-secondary" onclick="downloadSVG()" id="downloadBtn" disabled>💾 Download SVG</button>
+    <span id="status" style="font-size:0.82em;color:#888;margin-left:auto"></span>
+  </div>
+
+  <div class="split">
+    <div class="panel" id="input-panel">
+      <div class="panel-label">📷 Original</div>
+      <img id="preview" style="display:none" alt="Preview">
+      <div id="dropHint" style="color:#555;text-align:center">Drop an image here<br>or click Upload</div>
+    </div>
+    <div class="panel" id="svg-panel">
+      <div class="panel-label">🎯 SVG Result</div>
+      <div id="svgContainer"></div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div>🎨 Colors: <span id="statColors">—</span></div>
+    <div>📐 Paths: <span id="statPaths">—</span></div>
+    <div>⏱️ Time: <span id="statTime">—</span>ms</div>
+    <div>📏 Size: <span id="statSize">—</span></div>
+  </div>
+</div>
+
+<script>
+let resultSVG = null;
+let selectedFile = null;
+
+const fileInput = document.getElementById('fileInput');
+const dropZone = document.body;
+
+// Drag & drop
+dropZone.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); });
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); e.stopPropagation();
+  if (e.dataTransfer.files.length > 0) {
+    fileInput.files = e.dataTransfer.files;
+    handleFile(fileInput);
+  }
+});
+
+function handleFile(input) {
+  if (input.files.length === 0) return;
+  selectedFile = input.files[0];
+  document.getElementById('vectorizeBtn').disabled = false;
+  document.getElementById('downloadBtn').disabled = true;
+  document.getElementById('status').textContent = selectedFile.name;
+  resultSVG = null;
+  
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('preview').src = e.target.result;
+    document.getElementById('preview').style.display = 'block';
+    document.getElementById('dropHint').style.display = 'none';
+    document.getElementById('svgContainer').innerHTML = '';
+    document.getElementById('statColors').textContent = '—';
+    document.getElementById('statPaths').textContent = '—';
+    document.getElementById('statTime').textContent = '—';
+    document.getElementById('statSize').textContent = '—';
+  };
+  reader.readAsDataURL(selectedFile);
+}
+
+async function vectorize() {
+  if (!selectedFile) return;
+  
+  const btn = document.getElementById('vectorizeBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Processing...';
+  document.getElementById('status').textContent = 'Vectorizing...';
+  
+  const formData = new FormData();
+  formData.append('image', selectedFile);
+  formData.append('maxColors', document.getElementById('colors').value);
+  formData.append('detail', document.getElementById('detail').value);
+  formData.append('maxImageSize', document.getElementById('maxSize').value);
+  formData.append('strokeEnabled', document.getElementById('strokeEnabled').checked);
+  formData.append('strokeWidth', document.getElementById('strokeWidth').value);
+  
+  try {
+    const res = await fetch('/api/vectorize', { method: 'POST', body: formData });
+    const data = await res.json();
+    
+    if (data.error) {
+      document.getElementById('status').textContent = '❌ ' + data.error;
+      btn.disabled = false;
+      btn.textContent = '⚡ Vectorize';
+      return;
+    }
+    
+    resultSVG = data.svg;
+    document.getElementById('svgContainer').innerHTML = data.svg;
+    document.getElementById('downloadBtn').disabled = false;
+    document.getElementById('statColors').textContent = data.colorCount;
+    document.getElementById('statPaths').textContent = data.pathCount;
+    document.getElementById('statTime').textContent = data.processingTime;
+    document.getElementById('statSize').textContent = (new Blob([data.svg]).size / 1024).toFixed(1) + ' KB';
+    document.getElementById('status').textContent = '✅ Done in ' + data.processingTime + 'ms';
+    
+  } catch (err) {
+    document.getElementById('status').textContent = '❌ ' + err.message;
+  }
+  
+  btn.disabled = false;
+  btn.textContent = '⚡ Vectorize';
+}
+
+function downloadSVG() {
+  if (!resultSVG) return;
+  const blob = new Blob([resultSVG], { type: 'image/svg+xml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (selectedFile?.name || 'output').replace(/\.[^.]+$/, '') + '.svg';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>

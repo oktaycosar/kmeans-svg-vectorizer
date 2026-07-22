@@ -63,9 +63,14 @@ Bu proje [VisionCortex VTracer](https://github.com/visioncortex/vtracer)'ı vars
 
 MIT — istediğin gibi kullan, değiştir, dağıt.
 
+## ⚠️ Bilinen Sınırlamalar
+
+- **Gradient/fotoğraf**: Vektörizasyon düz renkli logo ve grafikler için optimize edilmiştir. Gradyan geçişlerinde posterizasyon (bantlanma) oluşur. Vector Magic'in Stanford tabanlı "büyük resim matematiği" yaklaşımı henüz uygulanmamıştır — bu özellik üzerinde çalışılmaktadır.
+- VTracer `color_precision` maksimum 8-bit (256 renk) ile sınırlıdır.
+
 ## 🛣️ Yol Haritası
 
-- [ ] Gradient bantlama (posterizasyon azaltma)
+- [ ] ~~Gradient bantlama~~ → v2.1'de kısmi iyileştirme yapıldı, tam çözüm için `<linearGradient>` modülü planlanıyor
 - [ ] Anti-aliasing kenar yumuşatma
 - [ ] Toplu işleme (batch klasör)
 - [ ] Daha hızlı renk azaltma (Median Cut / Octree)

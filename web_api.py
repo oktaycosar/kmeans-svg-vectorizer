@@ -48,7 +48,7 @@ async def vectorize(
 def _vectorize_vtracer(tmp_path, maxColors, detail):
     t_start = time.time()
     out_path = tmp_path + ".svg"
-    # Vector Magic tarzı: çok renk + küçük mozaik patch'ler
+    # adaptive quantization: çok renk + küçük segment = daha yumuşak geçiş
     # maxColors 2→256 → color_precision 4→8 (16→256 renk)
     color_precision = max(4, min(8, int(maxColors ** 0.4) + 2))
     # Yüksek detay → daha düşük eşik = daha çok küçük segment

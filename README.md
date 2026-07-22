@@ -65,7 +65,7 @@ MIT — istediğin gibi kullan, değiştir, dağıt.
 
 ## ⚠️ Bilinen Sınırlamalar
 
-- **Gradient/fotoğraf**: Vektörizasyon düz renkli logo ve grafikler için optimize edilmiştir. Gradyan geçişlerinde posterizasyon (bantlanma) oluşur. Vector Magic'in Stanford tabanlı "büyük resim matematiği" yaklaşımı henüz uygulanmamıştır — bu özellik üzerinde çalışılmaktadır.
+- **Gradient/fotoğraf**: Vektörizasyon düz renkli logo ve grafikler için optimize edilmiştir. Gradyan geçişlerinde posterizasyon (bantlanma) oluşur — bu özellik üzerinde çalışılmaktadır.
 - VTracer `color_precision` maksimum 8-bit (256 renk) ile sınırlıdır.
 
 ## 🛣️ Yol Haritası

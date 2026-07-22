@@ -1,4 +1,4 @@
-"""Vector Magic-style vectorizer: K-Means → Mask → Boundary → SVG path"""
+"""K-Means → Mask → Boundary → SVG path vectorizer"""
 import cv2, numpy as np, time
 
 t0=time.time()
@@ -50,5 +50,5 @@ svg=[f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}"
 svg.append(f'<rect width="{w}" height="{h}" fill="white"/>')
 svg.extend(paths)
 svg.append('</svg>')
-open('logo_output3/vm_style.svg','w').write('\n'.join(svg))
-print(f'Total: {time.time()-t0:.2f}s → logo_output3/vm_style.svg ({len(paths)} paths)')
+open('logo_output3/output.svg','w').write('\n'.join(svg))
+print(f'Total: {time.time()-t0:.2f}s → logo_output3/output.svg ({len(paths)} paths)')

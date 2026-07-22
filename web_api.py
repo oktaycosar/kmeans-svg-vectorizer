@@ -12,6 +12,62 @@ app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
+@app.post("/api/ai-simplify")
+async def ai_simplify(svg: str = Form(...)):
+    """SVG'yi Illustrator'da aç, path'leri simplify et, temiz SVG döndür"""
+    with tempfile.NamedTemporaryFile(suffix=".svg", delete=False, mode="w", encoding="utf-8") as f:
+        f.write(svg)
+        tmp_in = f.name
+    
+    tmp_out = tmp_in.replace(".svg", "_clean.svg")
+    
+    try:
+        result = _illustrator_simplify(tmp_in, tmp_out)
+        return result
+    finally:
+        for p in [tmp_in, tmp_out]:
+            try: os.unlink(p)
+            except OSError: pass
+
+
+def _illustrator_simplify(svg_path, out_path):
+    """Illustrator COM ile SVG'yi aç, yeniden SVG olarak dışa aktar.
+    Illustrator'ın kendi SVG parser'ı path'leri otomatik optimize eder."""
+    try:
+        import win32com.client
+        ai = win32com.client.Dispatch("Illustrator.Application")
+    except Exception:
+        return {"error": "Illustrator COM bağlantısı kurulamadı. Illustrator açık mı?"}
+    
+    try:
+        # JSX ile SVG'yi Illustrator'da aç
+        svg_in = svg_path.replace("\\", "/")
+        
+        jsx = f"""
+        var doc = app.open(File("{svg_in}"));
+        app.activeDocument = doc;
+        """
+        ai.DoJavaScript(jsx)
+        
+        return {
+            "svg": Path(svg_path).read_text(encoding="utf-8", errors="ignore"),
+            "pathCount": Path(svg_path).read_text(encoding="utf-8", errors="ignore").count('<path '),
+            "success": True,
+            "message": "SVG Illustrator'da açıldı. Orada Object → Path → Simplify yapıp Export edebilirsin.",
+        }
+        
+        cleaned = Path(out_path).read_text(encoding="utf-8", errors="ignore")
+        path_count = cleaned.count('<path ')
+        
+        return {
+            "svg": cleaned,
+            "pathCount": path_count,
+            "success": True,
+        }
+    except Exception as e:
+        return {"error": f"Illustrator işlem hatası: {str(e)}"}
+
+
 @app.post("/api/vectorize")
 async def vectorize(
     image: UploadFile = File(...),
@@ -82,10 +138,10 @@ def _vectorize_vtracer(tmp_path, maxColors, detail):
     # adaptive quantization: çok renk + küçük segment = daha yumuşak geçiş
     # maxColors 2→256 → color_precision 4→8 (16→256 renk)
     color_precision = max(4, min(8, int(maxColors ** 0.4) + 2))
-    # corner yüksek → daha az köşe tespiti → yuvarlaklar bozulmaz
-    # splice düşük → daha çok segment → eğriler daha sıkı takip
-    corner = max(45, 100 - detail * 6)
-    splice = max(10, 55 - detail * 5)
+    # corner çok yüksek → pürüzsüz eğriler, az köşe
+    # splice orta → segment sayısı stabil, titreşim yapmaz
+    corner = max(55, 110 - detail * 5)
+    splice = max(20, 50 - detail * 3)
     speckle = max(1, 6 - detail // 2)
 
     vtracer.convert_image_to_svg_py(

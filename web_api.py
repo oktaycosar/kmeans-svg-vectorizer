@@ -21,6 +21,7 @@ async def vectorize(
     strokeEnabled: bool = Form(False),
     strokeWidth: float = Form(0.5),
     engine: str = Form("kmeans"),
+    layered: bool = Form(False),
 ):
     """Vectorize: K-Means (default) or VTracer (spline curves)"""
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
@@ -29,9 +30,15 @@ async def vectorize(
 
     try:
         if engine == "vtracer":
-            return _vectorize_vtracer(tmp_path, maxColors, detail)
+            result = _vectorize_vtracer(tmp_path, maxColors, detail)
         else:
-            return _vectorize_kmeans(tmp_path, maxColors, detail, maxImageSize, strokeEnabled, strokeWidth)
+            result = _vectorize_kmeans(tmp_path, maxColors, detail, maxImageSize, strokeEnabled, strokeWidth)
+        
+        if layered:
+            result["svg"] = _add_layers_to_svg(result["svg"])
+            result["layered"] = True
+        
+        return result
     finally:
         os.unlink(tmp_path)
 
@@ -41,17 +48,23 @@ async def vectorize(
 def _vectorize_vtracer(tmp_path, maxColors, detail):
     t_start = time.time()
     out_path = tmp_path + ".svg"
-    color_precision = max(4, min(8, maxColors // 2))
+    # Vector Magic tarzı: çok renk + küçük mozaik patch'ler
+    # maxColors 2→256 → color_precision 4→8 (16→256 renk)
+    color_precision = max(4, min(8, int(maxColors ** 0.4) + 2))
+    # Yüksek detay → daha düşük eşik = daha çok küçük segment
+    corner = max(20, 80 - detail * 8)
+    splice = max(15, 65 - detail * 6)
+    speckle = max(1, 6 - detail // 2)
 
     vtracer.convert_image_to_svg_py(
         tmp_path, out_path,
         colormode='color',
         hierarchical='stacked',
         mode='spline',
-        filter_speckle=max(2, 10 - detail),
+        filter_speckle=speckle,
         color_precision=color_precision,
-        corner_threshold=60,
-        splice_threshold=45,
+        corner_threshold=corner,
+        splice_threshold=splice,
     )
 
     svg = Path(out_path).read_text(encoding="utf-8")
@@ -191,6 +204,62 @@ def _vectorize_kmeans(tmp_path, maxColors, detail, maxImageSize, strokeEnabled, 
         "processingTime": int((time.time() - t_start) * 1000),
         "engine": "kmeans",
     }
+
+
+def _add_layers_to_svg(svg_text):
+    """Group SVG paths by fill color into named <g> layers for PPT/Illustrator."""
+    import re
+    paths = re.findall(r'(<path[^>]*?fill="([^"]+)"[^>]*?/>)', svg_text)
+    if len(paths) < 2:
+        return svg_text
+    
+    def hex_to_rgb(h):
+        h = h.lstrip('#')
+        return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+    
+    def color_dist(c1, c2):
+        return sum((a-b)**2 for a,b in zip(c1, c2)) ** 0.5
+    
+    groups = {}
+    for path_full, fill_color in paths:
+        if fill_color.lower() in ('none', 'white') or fill_color == '#ffffff':
+            continue
+        try:
+            rgb = hex_to_rgb(fill_color)
+        except:
+            continue
+        best_group, best_dist = None, 9999
+        for g_color in groups:
+            d = color_dist(rgb, g_color)
+            if d < best_dist:
+                best_dist, best_group = d, g_color
+        if best_group and best_dist < 35:
+            groups[best_group].append(path_full)
+        else:
+            groups[rgb] = [path_full]
+    
+    if len(groups) <= 1:
+        return svg_text
+    
+    # Keep original SVG header + background
+    svg_start = svg_text[:svg_text.index('>')+1]
+    svg_end = '</svg>'
+    bg_match = re.search(r'<rect[^>]*/>', svg_text)
+    bg_str = bg_match.group(0) if bg_match else ''
+    
+    def brightness(rgb):
+        return 0.299*rgb[0] + 0.587*rgb[1] + 0.114*rgb[2]
+    
+    sorted_groups = sorted(groups.items(), key=lambda x: brightness(x[0]))
+    lines = [svg_start, bg_str]
+    for i, (rgb, layer_paths) in enumerate(sorted_groups, 1):
+        lines.append(f'  <!-- layer-{i}: {len(layer_paths)} shapes -->')
+        lines.append(f'  <g id="layer-{i}">')
+        for p in layer_paths:
+            lines.append(f'    {p}')
+        lines.append(f'  </g>')
+    lines.append(svg_end)
+    return '\n'.join(lines)
 
 
 @app.get("/")

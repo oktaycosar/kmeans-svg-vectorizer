@@ -1,8 +1,8 @@
 # 🎨 K-Means SVG Vectorizer
 
-**Bitmap → SVG vektörizasyon pipeline.** PNG/JPG görselleri K-Means renk kuantalama + kontur tespiti ile SVG'ye dönüştürür.
+**Dual-engine bitmap → SVG vektörizasyon.** PNG/JPG görselleri K-Means renk kuantalama veya VTracer spline motoru ile SVG'ye dönüştürür.
 
-> Sıfırdan yazıldı, sadece standart OpenCV fonksiyonları kullanır. AI/ML yok.
+> Powered by [VTracer](https://github.com/visioncortex/vtracer) (Rust, MIT) + custom K-Means pipeline.
 
 ## ⚡ Hızlı Başlangıç
 
@@ -27,25 +27,23 @@ Tarayıcıda `http://localhost:8765` adresine git, görselini yükle, vectorize 
 
 ## 🧠 Pipeline
 
+### Motor 1: VTracer (varsayılan)
 ```
-PNG/JPG → 2x Upscale → K-Means (12-32 renk) → Per-color Maske
-→ Morfolojik Yumuşatma → findContours (RETR_CCOMP, delik tespiti)
-→ Douglas-Peucker Basitleştirme → SVG <path> (fill-rule="evenodd")
+PNG/JPG → VTracer Rust engine → Spline eğriler → SVG
 ```
-
 | Aşama | Açıklama |
 |---|---|
-| 🎨 K-Means | Renkleri N kümeye indirger |
-| 🔍 2x Upscale | Sub-pixel kenar kalitesi |
-| 🧹 Morfoloji | Maskelerdeki gürültüyü temizler |
-| 🕳️ RETR_CCOMP | Delikleri (hole) tespit eder |
-| 📐 approxPolyDP | Akıllı düğüm azaltma |
-| 📏 Z-order | Büyük şekiller arkada, küçükler önde |
+| 🎨 Renk Kuantalama | VisionCortex clustering algorithm |
+| 📐 Spline Fitting | O(n) eğri uydurma |
+| 🏗️ Hierarchical | Stacked mode, deliksiz shape'ler |
+
+### Motor 2: K-Means (klasik)
 
 ## 🖥️ Web Arayüzü
 
 - 🖱️ **Drag & drop** görsel yükleme
 - 🎚️ **Slider**: Renk sayısı (2-32), detay seviyesi (1-10)
+- � **Motor seçimi**: VTracer (spline) | K-Means (düz çizgi)
 - 👁️ **Canlı önizleme**: Orijinal vs SVG yan yana
 - 💾 **Tek tıkla SVG indir**
 
@@ -53,8 +51,13 @@ PNG/JPG → 2x Upscale → K-Means (12-32 renk) → Per-color Maske
 
 - Python 3.10+
 - FastAPI + Uvicorn (web sunucu)
-- OpenCV (görüntü işleme)
-- NumPy (matris işlemleri)
+- OpenCV + NumPy (K-Means motoru)
+- [VTracer](https://github.com/visioncortex/vtracer) (Rust, MIT — spline motoru)
+- visioncortex/vtracer Python binding
+
+## ⭐ Teşekkür
+
+Bu proje [VisionCortex VTracer](https://github.com/visioncortex/vtracer)'ı varsayılan vektörizasyon motoru olarak kullanır. VTracer, MIT lisanslı, Rust ile yazılmış, akademik atıf almış bir raster-to-SVG dönüştürücüdür.
 
 ## 📄 Lisans
 

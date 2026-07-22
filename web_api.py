@@ -82,9 +82,10 @@ def _vectorize_vtracer(tmp_path, maxColors, detail):
     # adaptive quantization: çok renk + küçük segment = daha yumuşak geçiş
     # maxColors 2→256 → color_precision 4→8 (16→256 renk)
     color_precision = max(4, min(8, int(maxColors ** 0.4) + 2))
-    # Yüksek detay → daha düşük eşik = daha çok küçük segment
-    corner = max(20, 80 - detail * 8)
-    splice = max(15, 65 - detail * 6)
+    # corner yüksek → daha az köşe tespiti → yuvarlaklar bozulmaz
+    # splice düşük → daha çok segment → eğriler daha sıkı takip
+    corner = max(45, 100 - detail * 6)
+    splice = max(10, 55 - detail * 5)
     speckle = max(1, 6 - detail // 2)
 
     vtracer.convert_image_to_svg_py(
